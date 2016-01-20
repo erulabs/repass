@@ -1,0 +1,22 @@
+{
+  "parser": "babel-eslint",
+  "extends": "standard",
+  "ecmaFeatures": {
+    "modules": true,
+    "jsx": true
+  },
+  "rules": {},
+  "plugins": [
+    "react"
+  ],
+  "settings": {
+    "react": {
+      "pragma": "React"
+    }
+  },
+  "globals": {
+    "React": false,
+    "ReactDOM": false,
+    "THREE": false
+  }
+}
