@@ -1,6 +1,7 @@
 'use strict'
 
 import Random from 'random-js'
+import AWS from 'aws-sdk'
 
 const RepassOptionsError = function (msg) {
   this.name = 'RepassOptionsError'
@@ -9,18 +10,19 @@ const RepassOptionsError = function (msg) {
 
 export class Repass {
   constructor (options) {
+    this.keyStore = {}
     if (options.otp === undefined) {
       throw new RepassOptionsError('Missing options.otp property')
     }
     console.log(options)
   }
-  get () {
+  get (key) {
 
   }
-  set () {
-
+  set (key, value = false) {
+    if (!value) value = this.gen()
   }
-  del () {
+  del (key = false) {
 
   }
   ls () {
@@ -29,7 +31,7 @@ export class Repass {
   regen () {
 
   }
-  gen (seed) {
+  gen () {
     const random = new Random(Random.engines.mt19937().autoSeed())
     console.log(random.string())
   }

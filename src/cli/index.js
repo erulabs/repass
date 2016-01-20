@@ -7,6 +7,7 @@ import { Repass } from './../lib/Repass.js'
 import yargs from 'yargs'
 import inquirer from 'inquirer'
 import path from 'path'
+import mkdirp from 'mkdirp'
 
 const argv = yargs
   .usage(USAGE)
@@ -23,6 +24,8 @@ const argv = yargs
   // Optional S3 creds
   .describe('iam', 'AWS IAM ID')
   .describe('secret', 'AWS IAM Secret')
+  .describe('storage', 'either "s3" or a file location for local storage')
+  .default('storage', '~/.repass/db')
   // Commands:
   .command('get', 'get the password for a site')
   .command('set', 'set the password for a site')
@@ -48,6 +51,9 @@ inquirer.prompt([
     message: 'Yubikey OTP:'
   }
 ], function (result) {
+  let storage = argv.storage
+  if (argv.storage === 's3' || (argv.iam && argv.secret)) storage = 's3'
+
   const repass = new Repass({
     otp: result.otp,
     key: path.normalize(argv.i.replace('~', getUserHome())),
@@ -55,7 +61,8 @@ inquirer.prompt([
     client_id: argv.c,
     secret_key: argv.k,
     iam: argv.iam,
-    secret: argv.secret
+    secret: argv.secret,
+    storage
   })
   const doAction = function (action, args) {
     repass[action](...args)

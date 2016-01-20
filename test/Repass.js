@@ -3,6 +3,7 @@
 
 import expect from 'expect'
 import { Repass } from './../src/lib/Repass.js'
+import AWS from 'aws-sdk'
 
 describe('Repass', () => {
   let repass
