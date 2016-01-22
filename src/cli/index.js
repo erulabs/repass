@@ -11,10 +11,12 @@ import mkdirp from 'mkdirp'
 
 const argv = yargs
   .usage(USAGE)
-  .alias('c', 'client-id')
+  .command('setup', 'setup helper for getting started')
+
+  .alias('c', 'yubicoClientId')
   .describe('c', 'Yubico Client_ID')
   .demand('c')
-  .alias('k', 'secret-key')
+  .alias('k', 'yubicoSecretKey')
   .describe('k', 'Yubico Secret Key')
   .demand('k')
   // Options:
@@ -22,10 +24,12 @@ const argv = yargs
   .default('i', '~/.ssh/id_rsa')
   .alias('i', 'identity-file')
   // Optional S3 creds
-  .describe('iam', 'AWS IAM ID')
-  .describe('secret', 'AWS IAM Secret')
-  .describe('storage', 'either "s3" or a file location for local storage')
-  .default('storage', '~/.repass/db')
+  .describe('bucket', 'AWS Bucket name (optional)')
+  .describe('iam', 'AWS IAM ID (optional)')
+  .describe('secret', 'AWS IAM Secret (optional)')
+  // File
+  .describe('db', 'File path for local storage (optional)')
+  .default('db', '~/.repass/db')
   // Commands:
   .command('get', 'get the password for a site')
   .command('set', 'set the password for a site')
@@ -51,9 +55,6 @@ inquirer.prompt([
     message: 'Yubikey OTP:'
   }
 ], function (result) {
-  let storage = argv.storage
-  if (argv.storage === 's3' || (argv.iam && argv.secret)) storage = 's3'
-
   const repass = new Repass({
     otp: result.otp,
     key: path.normalize(argv.i.replace('~', getUserHome())),
@@ -62,10 +63,15 @@ inquirer.prompt([
     secret_key: argv.k,
     iam: argv.iam,
     secret: argv.secret,
-    storage
+    db: argv.db,
+    bucket: argv.bucket,
+    yubicoClientId: argv.yubicoClientId,
+    yubicoSecretKey: argv.yubicoSecretKey
   })
   const doAction = function (action, args) {
-    repass[action](...args)
+    repass.auth(() => {
+      repass[action](...args)
+    })
   }
   const action = argv._.shift()
   if (action === 'get') {
