@@ -1,8 +1,9 @@
 'use strict'
 
 import Random from 'random-js'
-import AWS from 'aws-sdk'
-import yub from 'yub'
+let AWS, yub
+// import AWS from 'aws-sdk'
+// import yub from 'yub'
 
 const RepassOptionsError = function (msg) {
   this.name = 'RepassOptionsError'
@@ -13,6 +14,7 @@ export class Repass {
   constructor (options = {}) {
     this.otp = false // Bool - is authed via OTP yet or not
     this.options = options
+    if (options.bucket) AWS = require('aws')
     if (options.otp === undefined) {
       throw new RepassOptionsError('Missing options.otp property')
     }
@@ -20,6 +22,7 @@ export class Repass {
   // Auth via yubico
   auth (options = this.options, callback = function () {}) {
     if (options.yubicoClientId && options.yubicoSecretKey && options.otp) {
+      if (!yub) yub = require('yub')
       yub.init(options.yubicoClientId, options.yubicoSecretKey)
       yub.verify(options.otp, (err, data) => {
         if (data.valid && !err) {
