@@ -17,7 +17,7 @@ describe('Repass', () => {
   it('should instantiate with options', () => {
     repass = new Repass({
       otp: 'fake',
-      key: 'fake'
+      passphrase: 'fake'
     })
     expect(repass).toBeA(Repass)
   })
@@ -25,9 +25,14 @@ describe('Repass', () => {
     expect(repass.get).toBeA('function')
     expect(repass.auth).toBeA('function')
     expect(repass.save).toBeA('function')
+    expect(repass.saveViaAWS).toBeA('function')
+    expect(repass.saveViaFile).toBeA('function')
     expect(repass.load).toBeA('function')
+    expect(repass.loadViaAWS).toBeA('function')
+    expect(repass.loadViaFile).toBeA('function')
+    expect(repass.encrypt).toBeA('function')
+    expect(repass.decrypt).toBeA('function')
     expect(repass.set).toBeA('function')
-    expect(repass.del).toBeA('function')
     expect(repass.ls).toBeA('function')
     expect(repass.regen).toBeA('function')
   })
