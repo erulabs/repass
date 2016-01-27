@@ -1,30 +1,26 @@
 'use strict'
 
 const Random = require('random-js')
-const aws = require('aws-sdk')
+// const aws = require('aws-sdk')
 const fs = require('fs')
-const path = require('path')
+// const path = require('path')
 const crypto = require('crypto')
 
 const encryptionScheme = 'aes-256-cbc'
-
-const RepassOptionsError = function (msg) {
-  this.name = 'RepassOptionsError'; this.message = msg || 'Repass Options incomplete'
-}
 
 export class Repass {
   constructor (options = {}) {
     this.options = options
     this.options.verbosity = this.options.verbosity || 1
-    if (options.otp === undefined) throw new RepassOptionsError('constructor: Missing options.otp property')
-    if (options.passphrase === undefined) throw new RepassOptionsError('constructor: Missing options.passphrase property')
-    if (typeof options.otp !== 'string' || typeof options.passphrase !== 'string') throw new RepassOptionsError('save: Invalid otp or passphrase')
+    if (options.otp === undefined) throw new Error('constructor: Missing options.otp property')
+    if (options.passphrase === undefined) throw new Error('constructor: Missing options.passphrase property')
+    if (typeof options.otp !== 'string' || typeof options.passphrase !== 'string') throw new Error('save: Invalid otp or passphrase')
   }
   auth (callback) {
     const options = this.options
     if (options.yubicoClientId && options.yubicoSecretKey && options.otp) {
       return this.authViaYubikey(callback)
-    } else throw new RepassOptionsError('auth: Only Yubikey OTP supported at this time')
+    } else throw new Error('auth: Only Yubikey OTP supported at this time')
   }
   authViaYubikey (callback) {
     const yub = require('yub')
@@ -35,14 +31,14 @@ export class Repass {
         this.otpToken = data.otp
         this.otpIdentity = data.identity
         if (callback) callback(data)
-      } else throw new RepassOptionsError('authViaYubikey: OTP signature invalid!')
+      } else throw new Error('authViaYubikey: OTP signature invalid!')
     })
   }
   encrypt (SENSITIVE_DATA_OBJECT, callback) {
     if (!this.otpToken || !this.otpIdentity || !this.options.passphrase) {
-      throw new RepassOptionsError('encrypt: Missing otpToken, otpIdentity or passphrase')
+      throw new Error('encrypt: Missing otpToken, otpIdentity or passphrase')
     }
-    if (!SENSITIVE_DATA_OBJECT || typeof SENSITIVE_DATA_OBJECT !== 'object') throw new RepassOptionsError('encrypt: Refusing to encrypt invalid data')
+    if (!SENSITIVE_DATA_OBJECT || typeof SENSITIVE_DATA_OBJECT !== 'object') throw new Error('encrypt: Refusing to encrypt invalid data')
     const data = new Buffer(JSON.stringify(SENSITIVE_DATA_OBJECT), 'binary')
     const cipher = crypto.createCipher(
       'aes-256-cbc',
@@ -54,9 +50,9 @@ export class Repass {
   }
   decrypt (ENCRYPTED_DATA_STRING, callback) {
     if (!this.otpToken || !this.otpIdentity || !this.options.passphrase) {
-      throw new RepassOptionsError('decrypt: Missing otpToken, otpIdentity or passphrase')
+      throw new Error('decrypt: Missing otpToken, otpIdentity or passphrase')
     }
-    if (!ENCRYPTED_DATA_STRING || typeof ENCRYPTED_DATA_STRING !== 'string') throw new RepassOptionsError('decrypt: Refusing to decrypt invalid data')
+    if (!ENCRYPTED_DATA_STRING || typeof ENCRYPTED_DATA_STRING !== 'string') throw new Error('decrypt: Refusing to decrypt invalid data')
     const buf = new Buffer(ENCRYPTED_DATA_STRING, 'base64')
     const decipher = crypto.createDecipheriv(encryptionScheme, this.otpToken + this.options.passphrase + this.otpIdentity, buf.toString('binary', 0, 16))
     decipher.setAutoPadding(false)
@@ -67,7 +63,7 @@ export class Repass {
   }
   save (ENCRYPTED_DATA_STRING) {
     const options = this.options
-    if (!ENCRYPTED_DATA_STRING || typeof ENCRYPTED_DATA_STRING !== 'string') throw new RepassOptionsError('save: Refusing to save invalid data')
+    if (!ENCRYPTED_DATA_STRING || typeof ENCRYPTED_DATA_STRING !== 'string') throw new Error('save: Refusing to save invalid data')
     if (options.db) this.saveViaFile(ENCRYPTED_DATA_STRING)
     if (options.bucket && options.awsId && options.awsSecret) this.saveViaAWS(ENCRYPTED_DATA_STRING)
   }

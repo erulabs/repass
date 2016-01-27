@@ -4,6 +4,7 @@
   "description": "A password manager that doesn't suck",
   "main": "_build/client/app.js",
   "scripts": {
+    "cli": "node ./_build/cli",
     "dev": "./node_modules/.bin/gulp watch",
     "start": "./node_modules/.bin/gulp && ./node_modules/.bin/electron _build/client/app.js",
     "test": "./node_modules/.bin/gulp test"
@@ -22,6 +23,7 @@
   "homepage": "https://github.com/erulabs/repass#readme",
   "dependencies": {
     "aws-sdk": "^2.2.31",
+    "colors": "^1.1.2",
     "inquirer": "^0.11.3",
     "mkdirp": "^0.5.1",
     "random-js": "^1.0.8",
