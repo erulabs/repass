@@ -1,4 +1,11 @@
-# Repass [![Build Status](https://img.shields.io/circleci/project/erulabs/repass/master.svg?style=flat-square)](https://circleci.com/gh/erulabs/repass) [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/erulabs/repass)
+<p align="center"><img width="126" height="149" src="https://i.imgur.com/9ZmsG2T.png"><br>
+<strong>Repass</strong>
+</p>
+
+# Repass
+**A password manager that doesn't suck**
+
+[![Build Status](https://img.shields.io/circleci/project/erulabs/repass/master.svg?style=flat-square)](https://circleci.com/gh/erulabs/repass) [![npm version](https://img.shields.io/npm/v/discobot.svg?style=flat-square)](https://www.npmjs.com/package/discobot) [![Code Climate](https://img.shields.io/codeclimate/github/erulabs/repass.svg?style=flat-square)](https://codeclimate.com/github/erulabs/repass) [![Dependency Status](https://img.shields.io/david/erulabs/repass.svg?style=flat-square)](https://david-dm.org/erulabs/repass) [![devDependency Status](https://img.shields.io/david/dev/erulabs/repass.svg?style=flat-square)](https://david-dm.org/erulabs/repass#info=devDependencies) [![npm downloads](https://img.shields.io/npm/dm/discobot.svg?style=flat-square)](https://www.npmjs.com/package/discobot) [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/erulabs/repass) [![Stories in Ready](https://badge.waffle.io/erulabs/repass.png?label=ready&title=Ready)](https://waffle.io/erulabs/repass)
 
 # Nothing to see here just yet :)
 
