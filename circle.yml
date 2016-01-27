@@ -14,6 +14,7 @@ test:
     - ./node_modules/.bin/gulp test
     - ./node_modules/.bin/gulp
     - ./node_modules/.bin/gulp finalize
+    - ./test/cli.sh
     # - docker login -e="." -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}" quay.io
     # - make pull || true
     # - make

@@ -3,4 +3,26 @@
 # Nothing to see here just yet :)
 
 ## Getting started:
-You need a Yubico clientID and secret key. Get one here: https://upgrade.yubico.com/getapikey/ - It is strongly recommended you generate one per device
+
+`npm install -g repass`
+
+`repass setup`
+
+#### List secrets
+`repass ls`
+
+#### Regenerate secrets
+`repass regen [site] [--all]`
+
+#### Get / set secrets for a given variable:
+`repass get <name>`
+`repass set <name>`
+
+#### Generate secrets
+`repass gen <name>`
+
+#### Generate human readable secrets (good for mobile use):
+`repass gen <name> --human`
+
+#### Generate secrets for dumb sites (eg: 8-20 at least one yadda yadda yadda):
+`repass gen <name> --dumb`

@@ -35,5 +35,6 @@ describe('Repass', () => {
     expect(repass.set).toBeA('function')
     expect(repass.ls).toBeA('function')
     expect(repass.regen).toBeA('function')
+    expect(repass.gen).toBeA('function')
   })
 })

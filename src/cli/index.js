@@ -5,14 +5,16 @@ const yargs = require('yargs')
 const inquirer = require('inquirer')
 const fs = require('fs')
 const mkdirp = require('mkdirp')
+const os = require('os')
+const path = require('path')
 require('colors')
 
 // System constants
 const cliName = 'repass'
 const USAGE = `Usage: ${cliName} [options] <action> [key] [value]`
-const REPASS_DIR = '~/.repass'
-const CONFIG_PATH = `${REPASS_DIR}/config.json`
-const DB_PATH = `${REPASS_DIR}/db`
+const REPASS_DIR = os.homedir() + path.sep + '.repass'
+const CONFIG_PATH = REPASS_DIR + path.sep + 'config.json'
+const DB_PATH = REPASS_DIR + path.sep + 'db'
 
 import { Repass } from './../lib/Repass.js'
 
@@ -51,7 +53,12 @@ if (argv._[0] === 'setup') {
       type: 'checkbox',
       message: 'Which OTP services would you like to use?',
       name: 'otp_services',
-      choices: [ { name: 'Yubikey' }, { name: 'Google Authenticator' }, { name: 'SMS' } ],
+      choices: [
+        { name: 'Yubikey' },
+        { name: 'SMS', disabled: true },
+        { name: 'Google Authenticator', disabled: true },
+        { name: 'Facial Recognition', disabled: true }
+      ],
       validate: function (answer) {
         if (answer.length < 1) return 'You must choose at least one OTP service.'
         return true
@@ -75,35 +82,18 @@ if (argv._[0] === 'setup') {
       questions.push({ type: 'input', name: 'bucket', message: 'AWS bucket:' })
     }
     if (result.storage.indexOf('local file') > -1) {
-      questions.push({
-        type: 'input',
-        name: 'dbfile',
-        message: 'encrypted database file:',
-        default: '~/.repass/db'
-      })
+      questions.push({ type: 'input', name: 'dbfile', message: 'encrypted database file:', default: DB_PATH })
     }
     if (result.otp_services.indexOf('Yubikey') > -1) {
       questions.push({ type: 'input', name: 'yubicoClientId', message: '(see https://upgrade.yubico.com/getapikey/Yubico)'.grey + ' Yubico Client Id:' })
       questions.push({ type: 'input', name: 'yubicoSecretKey', message: 'Yubico Secret Key:' })
     }
-    if (result.otp_services.indexOf('Google Authenticator') > -1) { // TODO
-      console.log('Sorry, Google Authenticator is Unimplemented')
-    }
-    if (result.otp_services.indexOf('SMS') > -1) {
-      questions.push({
-        type: 'input',
-        name: 'phone_number',
-        message: '(Google phone number recommended)'.grey + ' SMS phone number:',
-        validate: function (value) {
-          var pass = value.match(/^([01]{1})?[\-\.\s]?\(?(\d{3})\)?[\-\.\s]?(\d{3})[\-\.\s]?(\d{4})\s?((?:#|ext\.?\s?|x\.?\s?){1}(?:\d+)?)?$/i)
-          if (pass) return true
-          else return 'Please enter a valid phone number'
-        }
-      })
-    }
     inquirer.prompt(questions, function (result) {
+      console.log('Configuration complete!')
       mkdirp(REPASS_DIR, () => {
-        fs.writeFile(CONFIG_PATH, JSON.stringify(result), () => { fs.chmod(CONFIG_PATH, '0600') })
+        fs.writeFile(CONFIG_PATH, JSON.stringify(result, null, 4), () => {
+          fs.chmod(CONFIG_PATH, '0600')
+        })
         fs.chmod(REPASS_DIR, '0700')
       })
     })
@@ -121,15 +111,10 @@ if (argv._[0] === 'setup') {
   }
 
   // Contains questions that need to be asked
-  const questions = [{
-    name: 'passphrase',
-    type: 'password',
-    message: 'Passphrase:'
-  }, {
-    name: 'otp',
-    type: 'password',
-    message: 'Yubikey OTP:'
-  }]
+  const questions = [
+    { name: 'passphrase', type: 'password', message: 'Passphrase:' },
+    { name: 'otp', type: 'password', message: 'Yubikey OTP:' }
+  ]
 
   inquirer.prompt(questions, function (result) {
     const options = {
