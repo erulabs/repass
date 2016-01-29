@@ -7,6 +7,7 @@ const fs = require('fs')
 const mkdirp = require('mkdirp')
 const os = require('os')
 const path = require('path')
+const StatMode = require('stat-mode')
 require('colors')
 
 // System constants
@@ -102,6 +103,16 @@ if (argv._[0] === 'setup') {
   // Contains options we pass to Repass lib (loaded from file)
   let config = {}
   if (fs.existsSync(CONFIG_PATH)) {
+    const dirStats = new StatMode(fs.statSync(REPASS_DIR))
+    const stats = new StatMode(fs.statSync(CONFIG_PATH))
+    if (dirStats.group.read || dirStats.group.write ||
+        dirStats.group.execute || dirStats.others.read ||
+        dirStats.others.write || dirStats.others.execute ||
+        stats.group.read || stats.group.write ||
+        stats.group.execute || stats.others.read ||
+        stats.others.write) {
+          throw new Error('Insecure permissions in ' + REPASS_DIR)
+    }
     try {
       config = JSON.parse(fs.readFileSync(CONFIG_PATH))
       if (typeof config !== 'object') throw new Error('Invalid config file: ', CONFIG_PATH)
@@ -133,13 +144,14 @@ if (argv._[0] === 'setup') {
     }
     const repass = new Repass(Object.assign({}, options, { otp: result.otp, passphrase: result.passphrase }))
     function doAction (action, args) { repass.auth(() => { repass[action](...args) }) }
+    function afterAction () { console.log(...arguments) }
     const action = argv._.shift()
-    if (action === 'get') doAction('get', argv._)
-    else if (action === 'set') doAction('set', argv._)
-    else if (action === 'del') doAction('set', null)
-    else if (action === 'ls') doAction('ls', argv._)
-    else if (action === 'regen') doAction('regen', argv._)
-    else if (action === 'gen' || action === 'generate') doAction('regen', argv._)
+    if (action === 'get') doAction('get', afterAction)
+    else if (action === 'set') doAction('set', argv._, afterAction)
+    else if (action === 'del') doAction('set', null, afterAction)
+    else if (action === 'ls') doAction('ls', argv._, afterAction)
+    else if (action === 'regen') doAction('regen', argv._, afterAction)
+    else if (action === 'gen' || action === 'generate') doAction('regen', argv._, afterAction)
     else {
       process.stdout.write(USAGE + '\n')
       process.exit(1)

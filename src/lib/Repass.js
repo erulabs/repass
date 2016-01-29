@@ -16,13 +16,13 @@ export class Repass {
     if (options.passphrase === undefined) throw new Error('constructor: Missing options.passphrase property')
     if (typeof options.otp !== 'string' || typeof options.passphrase !== 'string') throw new Error('save: Invalid otp or passphrase')
   }
-  auth (callback) {
+  auth (callback = function () {}) {
     const options = this.options
     if (options.yubicoClientId && options.yubicoSecretKey && options.otp) {
       return this.authViaYubikey(callback)
-    } else throw new Error('auth: Only Yubikey OTP supported at this time')
+    } else throw new Error('auth: Only Yubikey OTP supported at this time - Try defining Yubico API details')
   }
-  authViaYubikey (callback) {
+  authViaYubikey (callback = function () {}) {
     const yub = require('yub')
     const options = this.options
     yub.init(options.yubicoClientId, options.yubicoSecretKey)
@@ -30,11 +30,11 @@ export class Repass {
       if (data.valid && !err) {
         this.otpToken = data.otp
         this.otpIdentity = data.identity
-        if (callback) callback(data)
+        callback(data)
       } else throw new Error('authViaYubikey: OTP signature invalid!')
     })
   }
-  encrypt (SENSITIVE_DATA_OBJECT, callback) {
+  encrypt (SENSITIVE_DATA_OBJECT) {
     if (!this.otpToken || !this.otpIdentity || !this.options.passphrase) {
       throw new Error('encrypt: Missing otpToken, otpIdentity or passphrase')
     }
@@ -48,18 +48,22 @@ export class Repass {
     ENCRYPTED_DATA_STRING += cipher.final('hex')
     return ENCRYPTED_DATA_STRING
   }
-  decrypt (ENCRYPTED_DATA_STRING, callback) {
+  decrypt (ENCRYPTED_DATA_STRING) {
+    if (!ENCRYPTED_DATA_STRING) return {}
     if (!this.otpToken || !this.otpIdentity || !this.options.passphrase) {
       throw new Error('decrypt: Missing otpToken, otpIdentity or passphrase')
     }
-    if (!ENCRYPTED_DATA_STRING || typeof ENCRYPTED_DATA_STRING !== 'string') throw new Error('decrypt: Refusing to decrypt invalid data')
     const buf = new Buffer(ENCRYPTED_DATA_STRING, 'base64')
-    const decipher = crypto.createDecipheriv(encryptionScheme, this.otpToken + this.options.passphrase + this.otpIdentity, buf.toString('binary', 0, 16))
-    decipher.setAutoPadding(false)
-    let dec = decipher.update(buf.toString('base64', 16), 'base64', 'utf-8')
-    dec += decipher.final('utf-8')
-    const SENSITIVE_DATA_OBJECT = JSON.parse(dec)
-    return SENSITIVE_DATA_OBJECT
+    try {
+      const decipher = crypto.createDecipheriv(encryptionScheme, this.otpToken + this.options.passphrase + this.otpIdentity, buf.toString('binary', 0, 16))
+      decipher.setAutoPadding(false)
+      let dec = decipher.update(buf.toString('base64', 16), 'base64', 'utf-8')
+      dec += decipher.final('utf-8')
+      const SENSITIVE_DATA_OBJECT = JSON.parse(dec)
+      return SENSITIVE_DATA_OBJECT
+    } catch (e) {
+      console.log('Failed to decrypt')
+    }
   }
   save (ENCRYPTED_DATA_STRING) {
     const options = this.options
@@ -70,51 +74,56 @@ export class Repass {
   saveViaAWS (ENCRYPTED_DATA_STRING) {
     throw new Error('saveViaAWS: Unimplemented')
   }
-  saveViaFile (ENCRYPTED_DATA_STRING) {
+  saveViaFile (ENCRYPTED_DATA_STRING, callback = function () {}) {
     const options = this.options
     fs.writeFile(options.db, ENCRYPTED_DATA_STRING, (err) => {
       if (err) throw new Error(err)
+      else callback()
     })
   }
-  load (callback) {
+  load (callback = function () {}) {
     const options = this.options
     if (options.db) this.loadViaFile(callback)
     if (options.bucket && options.awsId && options.awsSecret) this.loadViaAWS(callback)
   }
-  loadViaAWS (callback) {
+  loadViaAWS (callback = function () {}) {
     throw new Error('saveViaAWS: Unimplemented')
   }
-  loadViaFile (callback) {
+  loadViaFile (callback = function () {}) {
     const options = this.options
-    fs.readFile(options.db, (err, data) => {
-      if (err) throw new Error(err)
-      else callback(data)
+    fs.exists(options.db, (exists) => {
+      if (exists) {
+        fs.readFile(options.db, (err, data) => {
+          if (err) throw new Error(err)
+          else callback(data)
+        })
+      } else callback()
     })
   }
-  get (key, callback) {
+  get (key, callback = function () {}) {
     this.load((ENCRYPTED_DATA_STRING) => {
       const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
-      if (SENSITIVE_DATA_OBJECT[key]) callback(SENSITIVE_DATA_OBJECT[key])
-      else callback(undefined)
+      if (SENSITIVE_DATA_OBJECT &&
+          SENSITIVE_DATA_OBJECT[key]) callback(SENSITIVE_DATA_OBJECT[key])
+      else callback()
     })
   }
-  set (key, value = false) {
+  set (key, value = false, callback = function () {}) {
     this.load((ENCRYPTED_DATA_STRING) => {
       const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
       SENSITIVE_DATA_OBJECT[key] = value
-      this.encrypt(SENSITIVE_DATA_OBJECT, (ENCRYPTED_DATA_STRING) => {
-        this.save(ENCRYPTED_DATA_STRING)
-      })
+      this.save(this.encrypt(SENSITIVE_DATA_OBJECT))
+      callback('Save Complete')
     })
   }
-  ls () {
+  ls (filter, callback = function () {}) {
     throw new Error('saveViaAWS: Unimplemented')
   }
-  regen () {
+  regen (filter, callback = function () {}) {
     throw new Error('saveViaAWS: Unimplemented')
   }
-  gen () {
+  gen (filter, callback = function () {}) {
     const random = new Random(Random.engines.mt19937().autoSeed())
-    console.log(random.string())
+    callback(random.string())
   }
 }
