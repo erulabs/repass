@@ -1,6 +1,6 @@
 {
   "name": "repass",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A password manager that doesn't suck",
   "main": "_build/client/app.js",
   "scripts": {
