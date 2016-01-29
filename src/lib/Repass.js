@@ -1,20 +1,24 @@
 'use strict'
 
+// In seconds, the amount of time to remember authentication
+const DEFAULT_AUTH_EXPIRE_TIME = 120
+const DEFAULT_ENCRYPTION_SCHEME = 'aes-256-cbc'
+const DEFAULT_HASHING_SCHEME = 'sha256'
+const DEFAULT_STR_FORMAT = 'utf-8'
+
 const Random = require('random-js')
 // const aws = require('aws-sdk')
 const fs = require('fs')
 // const path = require('path')
 const crypto = require('crypto')
 
-const encryptionScheme = 'aes-256-cbc'
-
 export class Repass {
   constructor (options = {}) {
     this.options = options
     this.options.verbosity = this.options.verbosity || 1
-    if (options.otp === undefined) throw new Error('constructor: Missing options.otp property')
-    if (options.passphrase === undefined) throw new Error('constructor: Missing options.passphrase property')
-    if (typeof options.otp !== 'string' || typeof options.passphrase !== 'string') throw new Error('save: Invalid otp or passphrase')
+    this.options.encryptionScheme = this.options.encryptionScheme || DEFAULT_ENCRYPTION_SCHEME
+    this.options.hashingScheme = this.options.hashingScheme || DEFAULT_HASHING_SCHEME
+    this.options.strFormat = this.options.strFormat || DEFAULT_STR_FORMAT
   }
   auth (callback = function () {}) {
     const options = this.options
@@ -23,6 +27,7 @@ export class Repass {
     } else throw new Error('auth: Only Yubikey OTP supported at this time - Try defining Yubico API details')
   }
   authViaYubikey (callback = function () {}) {
+    // Make sure yub library is reaped at the end of this call
     const yub = require('yub')
     const options = this.options
     yub.init(options.yubicoClientId, options.yubicoSecretKey)
@@ -30,23 +35,43 @@ export class Repass {
       if (data.valid && !err) {
         this.otpToken = data.otp
         this.otpIdentity = data.identity
+        this.expireAuth('after', 120)
         callback(data)
       } else throw new Error('authViaYubikey: OTP signature invalid!')
     })
+  }
+  // Expires authentication details after seconds
+  expireAuth (afterOrEvery, seconds) {
+    if (typeof afterOrEvery === 'number') {
+      seconds = afterOrEvery
+      afterOrEvery = undefined
+    }
+    if (!afterOrEvery) afterOrEvery = 'after'
+    if (!seconds) seconds = DEFAULT_AUTH_EXPIRE_TIME
+    const doExpireAuth = () => {
+      this.otpToken = this.otpIdentity = this.passphrase = undefined
+    }
+    if (afterOrEvery === 'after') setTimeout(doExpireAuth, seconds * 1000)
+    else setInterval(doExpireAuth, seconds * 1000)
   }
   encrypt (SENSITIVE_DATA_OBJECT) {
     if (!this.otpToken || !this.otpIdentity || !this.options.passphrase) {
       throw new Error('encrypt: Missing otpToken, otpIdentity or passphrase')
     }
-    if (!SENSITIVE_DATA_OBJECT || typeof SENSITIVE_DATA_OBJECT !== 'object') throw new Error('encrypt: Refusing to encrypt invalid data')
-    const data = new Buffer(JSON.stringify(SENSITIVE_DATA_OBJECT), 'binary')
-    const cipher = crypto.createCipher(
-      'aes-256-cbc',
-      crypto.createHash('sha256').update(this.otpToken + this.options.passphrase + this.otpIdentity, 'utf-8').digest('hex')
-    )
-    let ENCRYPTED_DATA_STRING = cipher.update(data, 'utf-8', 'hex')
-    ENCRYPTED_DATA_STRING += cipher.final('hex')
-    return ENCRYPTED_DATA_STRING
+    if (!SENSITIVE_DATA_OBJECT || typeof SENSITIVE_DATA_OBJECT !== 'object') {
+      throw new Error('encrypt: Refusing to encrypt invalid data')
+    }
+    try {
+      const data = new Buffer(JSON.stringify(SENSITIVE_DATA_OBJECT), 'binary')
+      const cipher = crypto.createCipher(this.options.encryptionScheme,
+        crypto.createHash(this.options.hashingScheme).update(this.otpToken + this.options.passphrase + this.otpIdentity, this.options.strFormat).digest('hex')
+      )
+      let ENCRYPTED_DATA_STRING = cipher.update(data, this.options.strFormat, 'hex')
+      ENCRYPTED_DATA_STRING += cipher.final('hex')
+      return ENCRYPTED_DATA_STRING
+    } catch (e) {
+      throw new Error('Encryption failed! ' + e.message)
+    }
   }
   decrypt (ENCRYPTED_DATA_STRING) {
     if (!ENCRYPTED_DATA_STRING) return {}
@@ -55,10 +80,10 @@ export class Repass {
     }
     const buf = new Buffer(ENCRYPTED_DATA_STRING, 'base64')
     try {
-      const decipher = crypto.createDecipheriv(encryptionScheme, this.otpToken + this.options.passphrase + this.otpIdentity, buf.toString('binary', 0, 16))
+      const decipher = crypto.createDecipheriv(this.options.encryptionScheme, this.otpToken + this.options.passphrase + this.otpIdentity, buf.toString('binary', 0, 16))
       decipher.setAutoPadding(false)
-      let dec = decipher.update(buf.toString('base64', 16), 'base64', 'utf-8')
-      dec += decipher.final('utf-8')
+      let dec = decipher.update(buf.toString('base64', 16), 'base64', this.options.strFormat)
+      dec += decipher.final(this.options.strFormat)
       const SENSITIVE_DATA_OBJECT = JSON.parse(dec)
       return SENSITIVE_DATA_OBJECT
     } catch (e) {
@@ -100,7 +125,13 @@ export class Repass {
       } else callback()
     })
   }
-  get (key, callback = function () {}) {
+  //
+  // EXPOSED ACTIONS
+  //
+  get (args, callback = function () {}) {
+    if (typeof args === 'string') args = [args]
+    if (args.length === 0) throw new Error(`get: requires at least one argument`)
+    const key = args.shift()
     this.load((ENCRYPTED_DATA_STRING) => {
       const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
       if (SENSITIVE_DATA_OBJECT &&
@@ -108,7 +139,13 @@ export class Repass {
       else callback()
     })
   }
-  set (key, value = false, callback = function () {}) {
+  set (args, callback = function () {}) {
+    if (typeof args === 'string') args = [args]
+    if (args.length === 0) throw new Error(`set: requires at least one argument`)
+    const key = args.shift()
+    // TODO: Interpret key=value rest of args
+    let value
+    if (args.length !== 0) value = args.shift()
     this.load((ENCRYPTED_DATA_STRING) => {
       const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
       SENSITIVE_DATA_OBJECT[key] = value
@@ -116,13 +153,16 @@ export class Repass {
       callback('Save Complete')
     })
   }
-  ls (filter, callback = function () {}) {
+  use (args, callback = function () {}) {
+
+  }
+  ls (args, callback = function () {}) {
     throw new Error('saveViaAWS: Unimplemented')
   }
-  regen (filter, callback = function () {}) {
+  regen (args, callback = function () {}) {
     throw new Error('saveViaAWS: Unimplemented')
   }
-  gen (filter, callback = function () {}) {
+  gen (args, callback = function () {}) {
     const random = new Random(Random.engines.mt19937().autoSeed())
     callback(random.string())
   }

@@ -34,10 +34,11 @@ const argv = yargs
   .describe('db', 'File path for local storage (optional)').default('db', DB_PATH)
   // Commands:
   .command('setup', 'setup helper for getting started')
+  .command('use', 'Change databases')
   .command('get', 'get the password for a site')
   .command('set', 'set the password for a site')
   .command('del', 'delete an entry')
-  .command('ls', 'list entries')
+  .command('ls', 'list databases or database entries')
   .command('gen', 'Create a new password (without storing it)')
   .command('regen', 'Regenerate passwords')
   .demand(1)
@@ -111,7 +112,7 @@ if (argv._[0] === 'setup') {
         stats.group.read || stats.group.write ||
         stats.group.execute || stats.others.read ||
         stats.others.write) {
-          throw new Error('Insecure permissions in ' + REPASS_DIR)
+      throw new Error('Insecure permissions in ' + REPASS_DIR)
     }
     try {
       config = JSON.parse(fs.readFileSync(CONFIG_PATH))
@@ -122,6 +123,7 @@ if (argv._[0] === 'setup') {
   }
 
   // Contains questions that need to be asked
+  // TODO: Base questions on config / options
   const questions = [
     { name: 'passphrase', type: 'password', message: 'Passphrase:' },
     { name: 'otp', type: 'password', message: 'Yubikey OTP:' }
@@ -143,18 +145,12 @@ if (argv._[0] === 'setup') {
       })
     }
     const repass = new Repass(Object.assign({}, options, { otp: result.otp, passphrase: result.passphrase }))
-    function doAction (action, args) { repass.auth(() => { repass[action](...args) }) }
-    function afterAction () { console.log(...arguments) }
     const action = argv._.shift()
-    if (action === 'get') doAction('get', afterAction)
-    else if (action === 'set') doAction('set', argv._, afterAction)
-    else if (action === 'del') doAction('set', null, afterAction)
-    else if (action === 'ls') doAction('ls', argv._, afterAction)
-    else if (action === 'regen') doAction('regen', argv._, afterAction)
-    else if (action === 'gen' || action === 'generate') doAction('regen', argv._, afterAction)
-    else {
-      process.stdout.write(USAGE + '\n')
-      process.exit(1)
-    }
+    if (!repass[action]) throw new Error(`No such action "${action}"`)
+    repass.auth(() => {
+      repass[action](arguments, () => {
+        console.log(...arguments)
+      })
+    })
   })
 }
