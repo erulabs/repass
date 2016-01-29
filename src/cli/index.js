@@ -84,19 +84,19 @@ inquirer.prompt(questions, function (result) {
     yubicoSecretKey: argv.yubicoSecretKey || config.yubicoSecretKey
   }
   if (result['write-config']) {
-    mkdirp(REPASS_DIR, () =>
-      fs.writeFile(CONFIG_PATH, JSON.stringify(options), function () {
+    mkdirp(REPASS_DIR, () => {
+      fs.writeFile(CONFIG_PATH, JSON.stringify(options), () => {
         fs.chmod(CONFIG_PATH, '0600')
       })
       fs.chmod(REPASS_DIR, '0700')
-    )
+    })
   }
   // Note that we Object.assign so that there is no chance of otp / passphrase
   // leaking to config file
   const repass = new Repass(Object.assign({}, options, {
     otp: result.otp,
     passphrase: result.passphrase
-  })
+  }))
   const doAction = function (action, args) {
     repass.auth(() => {
       repass[action](...args)
