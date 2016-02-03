@@ -87,12 +87,13 @@ if (argv._[0] === 'setup') {
       questions.push({ type: 'input', name: 'dbfile', message: 'encrypted database file:', default: DB_PATH })
     }
     if (result.otp_services.indexOf('Yubikey') > -1) {
-      questions.push({ type: 'input', name: 'yubicoClientId', message: '(see https://upgrade.yubico.com/getapikey/Yubico)'.grey + ' Yubico Client Id:' })
+      questions.push({ type: 'input', name: 'yubicoClientId', message: '(see https://upgrade.yubico.com/getapikey)'.grey + ' Yubico Client Id:' })
       questions.push({ type: 'input', name: 'yubicoSecretKey', message: 'Yubico Secret Key:' })
     }
     inquirer.prompt(questions, function (result) {
       console.log('Configuration complete!')
       mkdirp(REPASS_DIR, () => {
+        fs.writeFile(REPASS_DIR + path.sep + '.gitingore', 'config.json')
         fs.writeFile(CONFIG_PATH, JSON.stringify(result, null, 4), () => {
           fs.chmod(CONFIG_PATH, '0600')
         })
@@ -147,10 +148,23 @@ if (argv._[0] === 'setup') {
     const repass = new Repass(Object.assign({}, options, { otp: result.otp, passphrase: result.passphrase }))
     const action = argv._.shift()
     if (!repass[action]) throw new Error(`No such action "${action}"`)
-    repass.auth(() => {
-      repass[action](arguments, () => {
-        console.log(...arguments)
+    try {
+      repass.auth(() => {
+        try {
+          repass[action](...argv._, (err, data) => {
+            if (err) {
+              process.stderr.write(err.message + '\n')
+              process.exit(1)
+            }
+            console.log(data)
+          })
+        } catch (e) {
+          process.stderr.write('Failure: ' + e.message + '\n')
+          process.exit(1)
+        }
       })
-    })
+    } catch (e) {
+      process.stderr.write('Failure: ' + e.message + '\n')
+    }
   })
 }

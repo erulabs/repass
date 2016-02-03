@@ -1,6 +1,7 @@
 'use strict'
 
 // In seconds, the amount of time to remember authentication
+// has no effect on the CLI - this is internal memory storage
 const DEFAULT_AUTH_EXPIRE_TIME = 120
 const DEFAULT_ENCRYPTION_SCHEME = 'aes-256-cbc'
 const DEFAULT_HASHING_SCHEME = 'sha256'
@@ -9,7 +10,6 @@ const DEFAULT_STR_FORMAT = 'utf-8'
 const Random = require('random-js')
 // const aws = require('aws-sdk')
 const fs = require('fs')
-// const path = require('path')
 const crypto = require('crypto')
 
 export class Repass {
@@ -87,7 +87,7 @@ export class Repass {
       const SENSITIVE_DATA_OBJECT = JSON.parse(dec)
       return SENSITIVE_DATA_OBJECT
     } catch (e) {
-      console.log('Failed to decrypt')
+      throw new Error('Failed to decrypt')
     }
   }
   save (ENCRYPTED_DATA_STRING) {
@@ -97,7 +97,7 @@ export class Repass {
     if (options.bucket && options.awsId && options.awsSecret) this.saveViaAWS(ENCRYPTED_DATA_STRING)
   }
   saveViaAWS (ENCRYPTED_DATA_STRING) {
-    throw new Error('saveViaAWS: Unimplemented')
+    throw new Error('Unimplemented')
   }
   saveViaFile (ENCRYPTED_DATA_STRING, callback = function () {}) {
     const options = this.options
@@ -112,7 +112,7 @@ export class Repass {
     if (options.bucket && options.awsId && options.awsSecret) this.loadViaAWS(callback)
   }
   loadViaAWS (callback = function () {}) {
-    throw new Error('saveViaAWS: Unimplemented')
+    throw new Error('Unimplemented')
   }
   loadViaFile (callback = function () {}) {
     const options = this.options
@@ -120,25 +120,30 @@ export class Repass {
       if (exists) {
         fs.readFile(options.db, (err, data) => {
           if (err) throw new Error(err)
-          else callback(data)
+          else callback(null, data)
         })
-      } else callback()
+      } else callback({ message: `"${options.db}" does not exist! Have you tried using "set" first?` })
     })
   }
   //
   // EXPOSED ACTIONS
   //
+  // GETs a secret from the vault
+  // calls `callback` with (err, data)
   get (args, callback = function () {}) {
     if (typeof args === 'string') args = [args]
     if (args.length === 0) throw new Error(`get: requires at least one argument`)
     const key = args.shift()
-    this.load((ENCRYPTED_DATA_STRING) => {
+    this.load((err, ENCRYPTED_DATA_STRING) => {
+      if (err) return callback(err)
       const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
       if (SENSITIVE_DATA_OBJECT &&
-          SENSITIVE_DATA_OBJECT[key]) callback(SENSITIVE_DATA_OBJECT[key])
-      else callback()
+          SENSITIVE_DATA_OBJECT[key]) callback(null, SENSITIVE_DATA_OBJECT[key])
+      else callback({ message: 'No such key!' }, null)
     })
   }
+  // SETs a secret into the vault
+  // calls `callback` with (err)
   set (args, callback = function () {}) {
     if (typeof args === 'string') args = [args]
     if (args.length === 0) throw new Error(`set: requires at least one argument`)
@@ -146,24 +151,35 @@ export class Repass {
     // TODO: Interpret key=value rest of args
     let value
     if (args.length !== 0) value = args.shift()
-    this.load((ENCRYPTED_DATA_STRING) => {
-      const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
-      SENSITIVE_DATA_OBJECT[key] = value
-      this.save(this.encrypt(SENSITIVE_DATA_OBJECT))
-      callback('Save Complete')
-    })
+    try {
+      this.load((err, ENCRYPTED_DATA_STRING) => {
+        if (err) return callback(err)
+        const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
+        SENSITIVE_DATA_OBJECT[key] = value
+        this.save(this.encrypt(SENSITIVE_DATA_OBJECT))
+        callback(null)
+      })
+    } catch (e) {
+      callback(e)
+    }
   }
+  // Swaps current database target (to isolate secrets with different passphrases)
   use (args, callback = function () {}) {
-
+    throw new Error('Unimplemented')
   }
+  // Lists current databases, or if given an argument, lists secrets in the database
+  // ls should also return indications if a password has expired
   ls (args, callback = function () {}) {
-    throw new Error('saveViaAWS: Unimplemented')
+    throw new Error('Unimplemented')
   }
+  // Regenerates passwords
   regen (args, callback = function () {}) {
-    throw new Error('saveViaAWS: Unimplemented')
+    throw new Error('Unimplemented')
   }
+  // Generates new random passwords,
+  // calls `callback` with (err, data)
   gen (args, callback = function () {}) {
     const random = new Random(Random.engines.mt19937().autoSeed())
-    callback(random.string())
+    callback(null, random.string())
   }
 }
