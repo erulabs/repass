@@ -15,6 +15,7 @@ const crypto = require('crypto')
 export class Repass {
   constructor (options = {}) {
     this.options = options
+    this.options.vaults = this.options.vaults || []
     this.options.verbosity = this.options.verbosity || 1
     this.options.encryptionScheme = this.options.encryptionScheme || DEFAULT_ENCRYPTION_SCHEME
     this.options.hashingScheme = this.options.hashingScheme || DEFAULT_HASHING_SCHEME
@@ -165,11 +166,6 @@ export class Repass {
   }
   // Swaps current database target (to isolate secrets with different passphrases)
   use (args, callback = function () {}) {
-    throw new Error('Unimplemented')
-  }
-  // Lists current databases, or if given an argument, lists secrets in the database
-  // ls should also return indications if a password has expired
-  ls (args, callback = function () {}) {
     throw new Error('Unimplemented')
   }
   // Regenerates passwords

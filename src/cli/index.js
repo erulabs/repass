@@ -13,10 +13,9 @@ require('colors')
 // System constants
 const cliName = 'repass'
 const USAGE = `Usage: ${cliName} [options] <action> [key] [value]`
-const REPASS_DIR = os.homedir() + path.sep + '.repass'
-const CONFIG_PATH = REPASS_DIR + path.sep + 'config.json'
-const DB_PATH = REPASS_DIR + path.sep + 'db'
-
+const REPASS_DIR = path.join(os.homedir(), '.repass')
+const CONFIG_PATH = path.join(REPASS_DIR, 'config.json')
+const DB_PATH = path.join(REPASS_DIR, 'db')
 import { Repass } from './../lib/Repass.js'
 
 const argv = yargs
@@ -92,6 +91,7 @@ if (argv._[0] === 'setup') {
     }
     inquirer.prompt(questions, function (result) {
       console.log('Configuration complete!')
+      result.vaults = []
       mkdirp(REPASS_DIR, () => {
         fs.writeFile(REPASS_DIR + path.sep + '.gitingore', 'config.json')
         fs.writeFile(CONFIG_PATH, JSON.stringify(result, null, 4), () => {
@@ -103,6 +103,7 @@ if (argv._[0] === 'setup') {
   })
 } else {
   // Contains options we pass to Repass lib (loaded from file)
+  const action = argv._.shift()
   let config = {}
   if (fs.existsSync(CONFIG_PATH)) {
     const dirStats = new StatMode(fs.statSync(REPASS_DIR))
@@ -122,49 +123,57 @@ if (argv._[0] === 'setup') {
       throw e
     }
   }
+  config.vaults = config.vaults || []
 
-  // Contains questions that need to be asked
-  // TODO: Base questions on config / options
-  const questions = [
-    { name: 'passphrase', type: 'password', message: 'Passphrase:' },
-    { name: 'otp', type: 'password', message: 'Yubikey OTP:' }
-  ]
+  if (action === 'ls') {
+    if (config.vaults.length < 1) {
+      process.stdout.write('No vaults available, use `repass use` or `repass set`')
+    } else {
+      process.stdout.write(`Vaults: \n${config.vaults.join('\n\t')}\n`)
+    }
+  } else {
+    // Contains questions that need to be asked
+    // TODO: Base questions on config / options
+    const questions = [
+      { name: 'passphrase', type: 'password', message: 'Passphrase:' },
+      { name: 'otp', type: 'password', message: 'Yubikey OTP:' }
+    ]
 
-  inquirer.prompt(questions, function (result) {
-    const options = {
-      awsId: argv.awsId || config.awsId,
-      awsSecret: argv.awsSecret || config.awsSecret,
-      db: argv.db || config.db,
-      bucket: argv.bucket || config.bucket,
-      yubicoClientId: argv.yubicoClientId || config.yubicoClientId,
-      yubicoSecretKey: argv.yubicoSecretKey || config.yubicoSecretKey
-    }
-    if (result.writeConfig) {
-      mkdirp(REPASS_DIR, () => {
-        fs.writeFile(CONFIG_PATH, JSON.stringify(options), () => { fs.chmod(CONFIG_PATH, '0600') })
-        fs.chmod(REPASS_DIR, '0700')
-      })
-    }
-    const repass = new Repass(Object.assign({}, options, { otp: result.otp, passphrase: result.passphrase }))
-    const action = argv._.shift()
-    if (!repass[action]) throw new Error(`No such action "${action}"`)
-    try {
-      repass.auth(() => {
-        try {
-          repass[action](...argv._, (err, data) => {
-            if (err) {
-              process.stderr.write(err.message + '\n')
-              process.exit(1)
-            }
-            console.log(data)
-          })
-        } catch (e) {
-          process.stderr.write('Failure: ' + e.message + '\n')
-          process.exit(1)
-        }
-      })
-    } catch (e) {
-      process.stderr.write('Failure: ' + e.message + '\n')
-    }
-  })
+    inquirer.prompt(questions, function (result) {
+      const options = {
+        awsId: argv.awsId || config.awsId,
+        awsSecret: argv.awsSecret || config.awsSecret,
+        db: argv.db || config.db,
+        bucket: argv.bucket || config.bucket,
+        yubicoClientId: argv.yubicoClientId || config.yubicoClientId,
+        yubicoSecretKey: argv.yubicoSecretKey || config.yubicoSecretKey
+      }
+      if (result.writeConfig) {
+        mkdirp(REPASS_DIR, () => {
+          fs.writeFile(CONFIG_PATH, JSON.stringify(options), () => { fs.chmod(CONFIG_PATH, '0600') })
+          fs.chmod(REPASS_DIR, '0700')
+        })
+      }
+      const repass = new Repass(Object.assign({}, options, { otp: result.otp, passphrase: result.passphrase }))
+      if (!repass[action]) throw new Error(`No such action "${action}"`)
+      try {
+        repass.auth(() => {
+          try {
+            repass[action](...argv._, (err, data) => {
+              if (err) {
+                process.stderr.write(err.message + '\n')
+                process.exit(1)
+              }
+              console.log(data)
+            })
+          } catch (e) {
+            process.stderr.write('Failure: ' + e.message + '\n')
+            process.exit(1)
+          }
+        })
+      } catch (e) {
+        process.stderr.write('Failure: ' + e.message + '\n')
+      }
+    })
+  }
 }
