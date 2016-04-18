@@ -127,7 +127,7 @@ if (argv._[0] === 'setup') {
 
   if (action === 'ls') {
     if (config.vaults.length < 1) {
-      process.stdout.write('No vaults available, use `repass use` or `repass set`')
+      process.stdout.write('No vaults available, use `repass use` or `repass set`\n')
     } else {
       process.stdout.write(`Vaults: \n${config.vaults.join('\n\t')}\n`)
     }

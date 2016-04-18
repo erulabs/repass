@@ -21,21 +21,12 @@ describe('Repass', () => {
     })
     expect(repass).toBeA(Repass)
   })
-  it('should have the proper methods', () => {
-    expect(repass.get).toBeA('function')
-    expect(repass.auth).toBeA('function')
-    expect(repass.save).toBeA('function')
-    expect(repass.saveViaAWS).toBeA('function')
-    expect(repass.saveViaFile).toBeA('function')
-    expect(repass.load).toBeA('function')
-    expect(repass.loadViaAWS).toBeA('function')
-    expect(repass.loadViaFile).toBeA('function')
-    expect(repass.encrypt).toBeA('function')
-    expect(repass.decrypt).toBeA('function')
-    expect(repass.set).toBeA('function')
-    expect(repass.ls).toBeA('function')
-    expect(repass.regen).toBeA('function')
-    expect(repass.gen).toBeA('function')
-    expect(repass.use).toBeA('function')
+  // Note: LS is missing from this list, as it is not a lib function but rather a CLI function
+  const expectedCommands = [ 'get', 'auth', 'save', 'saveViaAWS', 'saveViaFile', 'load', 'loadViaAWS',
+  'loadViaFile', 'encrypt', 'decrypt', 'set', 'regen', 'gen', 'use' ]
+  expectedCommands.forEach((cmd) => {
+    it(`should have the proper methods - ${cmd}`, () => {
+      expect(repass[cmd]).toBeA('function')
+    })
   })
 })
