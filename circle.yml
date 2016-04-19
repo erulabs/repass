@@ -11,4 +11,4 @@ test:
     - npm run build
     - npm run test
     - npm run finalize
-    - ./test/cli.sh
+    - bash test/cli.sh
