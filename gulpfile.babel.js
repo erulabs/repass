@@ -16,7 +16,9 @@ const preprocess = require('gulp-preprocess')
 const rimraf = require('rimraf')
 const gulpSequence = require('gulp-sequence')
 const browserSync = require('browser-sync').create()
-import mocha from 'gulp-mocha'
+const prepend = require('prepend-file')
+const fs = require('fs')
+const mocha = require('gulp-mocha')
 
 let watching = false
 const api_tasks = ['api:js']
@@ -129,6 +131,11 @@ gulp.task('cli:js', function () {
 gulp.task('test', function () {
   return gulp.src(`test/*.js`, { read: false })
     .pipe(mocha({ reporter: 'spec' }))
+})
+
+gulp.task('finalize', all_tasks, function () {
+  prepend('./build/cli/index.js', '#!/usr/bin/env node\n')
+  fs.chmodSync('./build/cli/index.js', '0770')
 })
 
 gulp.task('watch', ['all_tasks'], function () {
