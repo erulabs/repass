@@ -1,11 +1,16 @@
 {
   "parser": "babel-eslint",
   "extends": "standard",
-  "ecmaFeatures": {
-    "modules": true,
-    "jsx": true
+  "parserOptions": {
+    "ecmaFeatures": {
+      "jsx": true,
+      "modules": true,
+    }
   },
-  "rules": {},
+  "rules": {
+    "react/jsx-uses-vars": 2,
+    "arrow-parens": 0
+  },
   "plugins": [
     "react"
   ],
@@ -16,7 +21,6 @@
   },
   "globals": {
     "React": false,
-    "ReactDOM": false,
-    "THREE": false
+    "ReactDOM": false
   }
 }
