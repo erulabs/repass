@@ -1,7 +1,7 @@
-node_modules/
+/node_modules/
 .secrets
-npm-debug.log
-_build
+/npm-debug.log
+/build
 .DS_Store
 *.plain
 *.tmp

@@ -20,12 +20,15 @@ export class Repass {
     this.options.encryptionScheme = this.options.encryptionScheme || DEFAULT_ENCRYPTION_SCHEME
     this.options.hashingScheme = this.options.hashingScheme || DEFAULT_HASHING_SCHEME
     this.options.strFormat = this.options.strFormat || DEFAULT_STR_FORMAT
+    this.Error = function (err) {
+      throw new Error(err)
+    }
   }
   auth (callback = function () {}) {
     const options = this.options
     if (options.yubicoClientId && options.yubicoSecretKey && options.otp) {
       return this.authViaYubikey(callback)
-    } else throw new Error('auth: Only Yubikey OTP supported at this time - Try defining Yubico API details')
+    } else this.Error('auth: Only Yubikey OTP supported at this time - Try defining Yubico API details')
   }
   authViaYubikey (callback = function () {}) {
     // Make sure yub library is reaped at the end of this call
@@ -38,7 +41,7 @@ export class Repass {
         this.otpIdentity = data.identity
         this.expireAuth('after', 120)
         callback(data)
-      } else throw new Error('authViaYubikey: OTP signature invalid!')
+      } else this.Error('Invalid Yubikey!')
     })
   }
   // Expires authentication details after seconds
@@ -57,10 +60,10 @@ export class Repass {
   }
   encrypt (SENSITIVE_DATA_OBJECT) {
     if (!this.otpToken || !this.otpIdentity || !this.options.passphrase) {
-      throw new Error('encrypt: Missing otpToken, otpIdentity or passphrase')
+      this.Error('encrypt: Missing otpToken, otpIdentity or passphrase')
     }
     if (!SENSITIVE_DATA_OBJECT || typeof SENSITIVE_DATA_OBJECT !== 'object') {
-      throw new Error('encrypt: Refusing to encrypt invalid data')
+      this.Error('encrypt: Refusing to encrypt invalid data')
     }
     try {
       const data = new Buffer(JSON.stringify(SENSITIVE_DATA_OBJECT), 'binary')
@@ -71,13 +74,13 @@ export class Repass {
       ENCRYPTED_DATA_STRING += cipher.final('hex')
       return ENCRYPTED_DATA_STRING
     } catch (e) {
-      throw new Error('Encryption failed! ' + e.message)
+      this.Error('Encryption failed! ' + e.message)
     }
   }
   decrypt (ENCRYPTED_DATA_STRING) {
     if (!ENCRYPTED_DATA_STRING) return {}
     if (!this.otpToken || !this.otpIdentity || !this.options.passphrase) {
-      throw new Error('decrypt: Missing otpToken, otpIdentity or passphrase')
+      this.Error('decrypt: Missing otpToken, otpIdentity or passphrase')
     }
     const buf = new Buffer(ENCRYPTED_DATA_STRING, 'base64')
     try {
@@ -88,22 +91,22 @@ export class Repass {
       const SENSITIVE_DATA_OBJECT = JSON.parse(dec)
       return SENSITIVE_DATA_OBJECT
     } catch (e) {
-      throw new Error('Failed to decrypt')
+      this.Error('Failed to decrypt')
     }
   }
   save (ENCRYPTED_DATA_STRING) {
     const options = this.options
-    if (!ENCRYPTED_DATA_STRING || typeof ENCRYPTED_DATA_STRING !== 'string') throw new Error('save: Refusing to save invalid data')
+    if (!ENCRYPTED_DATA_STRING || typeof ENCRYPTED_DATA_STRING !== 'string') this.Error('save: Refusing to save invalid data')
     if (options.db) this.saveViaFile(ENCRYPTED_DATA_STRING)
     if (options.bucket && options.awsId && options.awsSecret) this.saveViaAWS(ENCRYPTED_DATA_STRING)
   }
   saveViaAWS (ENCRYPTED_DATA_STRING) {
-    throw new Error('Unimplemented')
+    this.Error('Unimplemented')
   }
   saveViaFile (ENCRYPTED_DATA_STRING, callback = function () {}) {
     const options = this.options
     fs.writeFile(options.db, ENCRYPTED_DATA_STRING, (err) => {
-      if (err) throw new Error(err)
+      if (err) this.Error(err)
       else callback()
     })
   }
@@ -113,14 +116,14 @@ export class Repass {
     if (options.bucket && options.awsId && options.awsSecret) this.loadViaAWS(callback)
   }
   loadViaAWS (callback = function () {}) {
-    throw new Error('Unimplemented')
+    this.Error('Unimplemented')
   }
   loadViaFile (callback = function () {}) {
     const options = this.options
     fs.exists(options.db, (exists) => {
       if (exists) {
         fs.readFile(options.db, (err, data) => {
-          if (err) throw new Error(err)
+          if (err) this.Error(err)
           else callback(null, data)
         })
       } else callback({ message: `"${options.db}" does not exist! Have you tried using "set" first?` })
@@ -133,8 +136,10 @@ export class Repass {
   // calls `callback` with (err, data)
   get (args, callback = function () {}) {
     if (typeof args === 'string') args = [args]
-    if (args.length === 0) throw new Error(`get: requires at least one argument`)
+    if (args.length === 0) this.Error('get: requires at least one argument')
     const key = args.shift()
+    console.log(args)
+    process.exit(1)
     this.load((err, ENCRYPTED_DATA_STRING) => {
       if (err) return callback(err)
       const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
@@ -147,13 +152,14 @@ export class Repass {
   // calls `callback` with (err)
   set (args, callback = function () {}) {
     if (typeof args === 'string') args = [args]
-    if (args.length === 0) throw new Error(`set: requires at least one argument`)
+    if (args.length === 0) this.Error('set: requires at least one argument')
     const key = args.shift()
     // TODO: Interpret key=value rest of args
     let value
     if (args.length !== 0) value = args.shift()
     try {
       this.load((err, ENCRYPTED_DATA_STRING) => {
+        console.log('error loading', err)
         if (err) return callback(err)
         const SENSITIVE_DATA_OBJECT = this.decrypt(ENCRYPTED_DATA_STRING)
         SENSITIVE_DATA_OBJECT[key] = value
@@ -164,13 +170,9 @@ export class Repass {
       callback(e)
     }
   }
-  // Swaps current database target (to isolate secrets with different passphrases)
-  use (args, callback = function () {}) {
-    throw new Error('Unimplemented')
-  }
   // Regenerates passwords
   regen (args, callback = function () {}) {
-    throw new Error('Unimplemented')
+    this.Error('Unimplemented')
   }
   // Generates new random passwords,
   // calls `callback` with (err, data)

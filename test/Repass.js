@@ -21,9 +21,9 @@ describe('Repass', () => {
     })
     expect(repass).toBeA(Repass)
   })
-  // Note: LS is missing from this list, as it is not a lib function but rather a CLI function
+  // Note: LS and USE are missing from this list, as they are lib functions but rather a CLI function
   const expectedCommands = [ 'get', 'auth', 'save', 'saveViaAWS', 'saveViaFile', 'load', 'loadViaAWS',
-  'loadViaFile', 'encrypt', 'decrypt', 'set', 'regen', 'gen', 'use' ]
+  'loadViaFile', 'encrypt', 'decrypt', 'set', 'regen', 'gen' ]
   expectedCommands.forEach((cmd) => {
     it(`should have the proper methods - ${cmd}`, () => {
       expect(repass[cmd]).toBeA('function')

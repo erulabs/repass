@@ -18,6 +18,11 @@ const CONFIG_PATH = path.join(REPASS_DIR, 'config.json')
 const DB_PATH = path.join(REPASS_DIR, 'db')
 import { Repass } from './../lib/Repass.js'
 
+const cliError = (str) => {
+  process.stderr.write(`${str}\n`)
+  process.exit(1)
+}
+
 const argv = yargs
   .usage(USAGE)
   // OTP choice (currently only Yubikey supported)
@@ -32,12 +37,12 @@ const argv = yargs
   // File
   .describe('db', 'File path for local storage (optional)').default('db', DB_PATH)
   // Commands:
-  .command('setup', 'setup helper for getting started')
+  .command('setup', 'Setup helper for getting started')
   .command('use', 'Change databases')
-  .command('get', 'get the password for a site')
-  .command('set', 'set the password for a site')
-  .command('del', 'delete an entry')
-  .command('ls', 'list databases or database entries')
+  .command('get', 'Get a secret')
+  .command('set', 'Set a secret')
+  .command('del', 'Delete an entry')
+  .command('ls', 'List databases or database entries')
   .command('gen', 'Create a new password (without storing it)')
   .command('regen', 'Regenerate passwords')
   .demand(1)
@@ -46,8 +51,8 @@ const argv = yargs
 // Setup helper to create config file
 if (argv._[0] === 'setup') {
   if (fs.existsSync(CONFIG_PATH)) {
-    console.log(`It appears you already have a config file at ${CONFIG_PATH}. Please remove it before running setup`)
-    process.exit(1)
+    // TODO: We should allow modifying the config with this helper
+    cliError(`It appears you already have a config file at ${CONFIG_PATH}. Please remove it before running setup`)
   }
   inquirer.prompt([
     {
@@ -89,11 +94,22 @@ if (argv._[0] === 'setup') {
       questions.push({ type: 'input', name: 'yubicoClientId', message: '(see https://upgrade.yubico.com/getapikey)'.grey + ' Yubico Client Id:' })
       questions.push({ type: 'input', name: 'yubicoSecretKey', message: 'Yubico Secret Key:' })
     }
+    if (result.otp_services.indexOf('SMS') > -1) {
+      questions.push({ type: 'input', name: 'twilio_id', message: 'Twilio API ID:' })
+      questions.push({ type: 'input', name: 'twilio_secret', message: 'Twiio API secret:' })
+    }
+    // The verification token should be pushed up with any remote storage option encrypted with a secret about the
+    // remote service. For instance part of the IAM id/key for AWS S3 and a locally stored fragment like a datetime.
+    // On pulling secrets, we verify that the host matches the local secrets. It's not a deal breaker if they don't,
+    // but we'll alert the user (This is essentially host-key varification, but service-agnostic and with a bit of
+    // security-thru-obsecurity as a bonus)
+    result.verification_token = 'a_random_string_goes_here' // TODO auto-gen verification key
     inquirer.prompt(questions, function (result) {
       console.log('Configuration complete!')
       result.vaults = []
+      // TODO Handle errors ofc
       mkdirp(REPASS_DIR, () => {
-        fs.writeFile(REPASS_DIR + path.sep + '.gitingore', 'config.json')
+        fs.writeFile(REPASS_DIR + path.sep + '.gitignore', 'config.json')
         fs.writeFile(CONFIG_PATH, JSON.stringify(result, null, 4), () => {
           fs.chmod(CONFIG_PATH, '0600')
         })
@@ -102,7 +118,6 @@ if (argv._[0] === 'setup') {
     })
   })
 } else {
-  // Contains options we pass to Repass lib (loaded from file)
   const action = argv._.shift()
   let config = {}
   if (fs.existsSync(CONFIG_PATH)) {
@@ -114,11 +129,11 @@ if (argv._[0] === 'setup') {
         stats.group.read || stats.group.write ||
         stats.group.execute || stats.others.read ||
         stats.others.write) {
-      throw new Error('Insecure permissions in ' + REPASS_DIR)
+      cliError(`Insecure permissions in ${REPASS_DIR}`)
     }
     try {
       config = JSON.parse(fs.readFileSync(CONFIG_PATH))
-      if (typeof config !== 'object') throw new Error('Invalid config file: ', CONFIG_PATH)
+      if (typeof config !== 'object') cliError(`Invalid config file: ${CONFIG_PATH}`)
     } catch (e) {
       throw e
     }
@@ -127,10 +142,15 @@ if (argv._[0] === 'setup') {
 
   if (action === 'ls') {
     if (config.vaults.length < 1) {
-      process.stdout.write('No vaults available, use `repass use` or `repass set`\n')
+      cliError('No vaults available, use `repass use` or `repass set`\n')
     } else {
       process.stdout.write(`Vaults: \n${config.vaults.join('\n\t')}\n`)
     }
+  } else if (action === 'use') {
+    if (argv._.length === 0) {
+      cliError('Usage: `repass use <vault>`\n')
+    }
+    console.log(config.vaults)
   } else {
     // Contains questions that need to be asked
     // TODO: Base questions on config / options
@@ -155,24 +175,23 @@ if (argv._[0] === 'setup') {
         })
       }
       const repass = new Repass(Object.assign({}, options, { otp: result.otp, passphrase: result.passphrase }))
-      if (!repass[action]) throw new Error(`No such action "${action}"`)
+      repass.Error = cliError
+      if (!repass[action]) cliError(`No such action "${action}"`)
       try {
         repass.auth(() => {
           try {
             repass[action](...argv._, (err, data) => {
               if (err) {
-                process.stderr.write(err.message + '\n')
-                process.exit(1)
+                cliError(err.message + '\n')
               }
               console.log(data)
             })
           } catch (e) {
-            process.stderr.write('Failure: ' + e.message + '\n')
-            process.exit(1)
+            cliError(`Failure: ${e.message}\n`)
           }
         })
       } catch (e) {
-        process.stderr.write('Failure: ' + e.message + '\n')
+        cliError(`Failure: ${e.message}\n`)
       }
     })
   }
