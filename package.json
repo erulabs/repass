@@ -7,7 +7,9 @@
     "cli": "node ./_build/cli",
     "dev": "./node_modules/.bin/gulp watch",
     "start": "./node_modules/.bin/gulp && ./node_modules/.bin/electron _build/client/app.js",
-    "test": "./node_modules/.bin/gulp test"
+    "test": "./node_modules/.bin/gulp test",
+    "build": "./node_modules/.bin/gulp",
+    "finalize": "./node_modules/.bin/gulp finalize"
   },
   "bin": "_build/cli/index.js",
   "repository": {
