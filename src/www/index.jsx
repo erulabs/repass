@@ -7,6 +7,6 @@ class HelloWorld extends React.Component {
 }
 
 ReactDOM.render(
-  <HelloWorld name="qqq" />,
+  <HelloWorld name='qqq' />,
   document.getElementById('app')
 )

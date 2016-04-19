@@ -133,7 +133,7 @@ gulp.task('test', function () {
     .pipe(mocha({ reporter: 'spec' }))
 })
 
-gulp.task('finalize', all_tasks, function () {
+gulp.task('finalize', function () {
   prepend('./build/cli/index.js', '#!/usr/bin/env node\n')
   fs.chmodSync('./build/cli/index.js', '0770')
 })
