@@ -129,7 +129,7 @@ gulp.task('cli:js', function () {
 })
 
 gulp.task('test', function () {
-  return gulp.src(`test/*.js`, { read: false })
+  return gulp.src('test/*.js', { read: false })
     .pipe(mocha({ reporter: 'spec' }))
 })
 

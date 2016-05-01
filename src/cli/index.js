@@ -8,6 +8,9 @@ const mkdirp = require('mkdirp')
 const os = require('os')
 const path = require('path')
 const StatMode = require('stat-mode')
+// const Random = require('random-js')
+const faker = require('faker')
+// const mt19937 = Random.engines.mt19937().autoSeed()
 require('colors')
 
 // System constants
@@ -74,21 +77,21 @@ if (argv._[0] === 'setup') {
       type: 'checkbox',
       message: 'Where would you like to store your vault?',
       name: 'storage',
-      choices: [ { name: 'AWS S3' }, { name: 'local file' } ],
+      choices: [ { name: 'AWS S3' }, { name: 'Locally (encrypted file)' } ],
       validate: function (answer) {
         if (answer.length < 1) return 'You must choose at least one storage type.'
         return true
       }
     }
-  ], function (result) {
+  ]).then(function (result) {
     const questions = []
     if (result.storage.indexOf('AWS S3') > -1) {
-      questions.push({ type: 'input', name: 'awsId', message: '(Use a minimal IAM profile for this)'.grey + ' AWS IAM ID:' })
-      questions.push({ type: 'input', name: 'awsSecret', message: 'AWS IAM Secret:' })
-      questions.push({ type: 'input', name: 'bucket', message: 'AWS bucket:' })
+      questions.push({ type: 'input', name: 's3_iam_id', message: '(Use a minimal IAM profile for this)'.grey + ' AWS IAM ID:' })
+      questions.push({ type: 'input', name: 's3_iam_secret', message: 'AWS IAM Secret:' })
+      questions.push({ type: 'input', name: 's3_bucket', message: 'AWS bucket:' })
     }
     if (result.storage.indexOf('local file') > -1) {
-      questions.push({ type: 'input', name: 'dbfile', message: 'encrypted database file:', default: DB_PATH })
+      questions.push({ type: 'input', name: 'file', message: 'encrypted database file:', default: DB_PATH })
     }
     if (result.otp_services.indexOf('Yubikey') > -1) {
       questions.push({ type: 'input', name: 'yubicoClientId', message: '(see https://upgrade.yubico.com/getapikey)'.grey + ' Yubico Client Id:' })
@@ -98,22 +101,28 @@ if (argv._[0] === 'setup') {
       questions.push({ type: 'input', name: 'twilio_id', message: 'Twilio API ID:' })
       questions.push({ type: 'input', name: 'twilio_secret', message: 'Twiio API secret:' })
     }
-    // The verification token should be pushed up with any remote storage option encrypted with a secret about the
-    // remote service. For instance part of the IAM id/key for AWS S3 and a locally stored fragment like a datetime.
-    // On pulling secrets, we verify that the host matches the local secrets. It's not a deal breaker if they don't,
-    // but we'll alert the user (This is essentially host-key varification, but service-agnostic and with a bit of
-    // security-thru-obsecurity as a bonus)
-    result.verification_token = 'a_random_string_goes_here' // TODO auto-gen verification key
-    inquirer.prompt(questions, function (result) {
-      console.log('Configuration complete!')
+    inquirer.prompt(questions).then(function (result) {
       result.vaults = []
       // TODO Handle errors ofc
+      // The verification token should be pushed up with any remote storage option encrypted with a secret about the
+      // remote service. For instance part of the IAM id/key for AWS S3 and a locally stored fragment like a datetime.
+      // On pulling secrets, we verify that the host matches the local secrets. It's not a deal breaker if they don't,
+      // but we'll alert the user (This is essentially host-key varification, but service-agnostic and with a bit of
+      // security-thru-obsecurity as a bonus)
+      result.verification_token = faker.random.words(4)
+      console.log('!'.blue)
+      console.log('!'.blue, 'Configuration complete!')
+      console.log('!'.blue)
+      console.log('!'.blue, `Your verification token is: "${result.verification_token.bold}"`)
+      console.log('!'.blue, 'This token is used to protect you from remote forgery - If you open this vault and see a different')
+      console.log('!'.blue, 'token, then the remote server is a fraud!')
       mkdirp(REPASS_DIR, () => {
-        fs.writeFile(REPASS_DIR + path.sep + '.gitignore', 'config.json')
-        fs.writeFile(CONFIG_PATH, JSON.stringify(result, null, 4), () => {
-          fs.chmod(CONFIG_PATH, '0600')
+        fs.writeFileSync(REPASS_DIR + path.sep + '.gitignore', 'config.json')
+        fs.writeFile(CONFIG_PATH, JSON.stringify(result, null, 4), (err) => {
+          if (err) throw err
+          fs.chmodSync(CONFIG_PATH, 600)
         })
-        fs.chmod(REPASS_DIR, '0700')
+        fs.chmodSync(REPASS_DIR, 700)
       })
     })
   })
@@ -129,7 +138,10 @@ if (argv._[0] === 'setup') {
         stats.group.read || stats.group.write ||
         stats.group.execute || stats.others.read ||
         stats.others.write) {
-      cliError(`Insecure permissions in ${REPASS_DIR}`)
+      // Windows doesn't support 700, 600
+      if (os.type() !== 'Windows_NT') {
+        cliError(`Insecure permissions in ${REPASS_DIR}`)
+      }
     }
     try {
       config = JSON.parse(fs.readFileSync(CONFIG_PATH))
@@ -142,10 +154,12 @@ if (argv._[0] === 'setup') {
 
   if (action === 'ls') {
     if (config.vaults.length < 1) {
-      cliError('No vaults available, use `repass use` or `repass set`\n')
+      cliError('No vaults available, use `repass setup`, `repass use` or `repass set`\n')
     } else {
       process.stdout.write(`Vaults: \n${config.vaults.join('\n\t')}\n`)
     }
+  // Repass `use` selects a vault for use
+  // `repass use existingDB` (swap to existingDB)
   } else if (action === 'use') {
     if (argv._.length === 0) {
       cliError('Usage: `repass use <vault>`\n')
